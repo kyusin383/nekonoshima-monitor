@@ -3,11 +3,30 @@ from bs4 import BeautifulSoup
 import hashlib
 import os
 import json
+import time
 
 URL = "https://neconoshima.jp/booking/"
 
-r = requests.get(URL, timeout=30)
-r.raise_for_status()
+# 最大3回アクセスを試す
+for attempt in range(3):
+    try:
+        r = requests.get(
+            URL,
+            timeout=(10, 20),
+            headers={
+                "User-Agent": "Mozilla/5.0 (Neconoshima Booking Monitor)"
+            }
+        )
+        r.raise_for_status()
+        break
+
+    except requests.RequestException as e:
+        print(f"アクセス失敗 {attempt + 1}/3: {e}")
+
+        if attempt == 2:
+            raise
+
+        time.sleep(5)
 
 soup = BeautifulSoup(r.text, "html.parser")
 
@@ -42,8 +61,8 @@ if os.path.exists(FILE):
     with open(FILE, "r") as f:
         old_hash = json.load(f).get("hash")
 
-# 初回は記録だけ。
-# 2回目以降、内容が変わったら通知。
+# 初回は記録だけ
+# 2回目以降、内容が変わったらDiscord通知
 if old_hash is not None and current_hash != old_hash:
 
     webhook = os.environ["DISCORD_WEBHOOK"]
